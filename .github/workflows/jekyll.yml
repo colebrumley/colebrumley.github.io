@@ -1,0 +1,36 @@
+name: Jekyll site CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - run: mkdir -p ~/image-cache
+
+    - id: image-cache
+      uses: actions/cache@v1
+      with:
+          path: ~/image-cache
+          key: image-cache-${{ runner.os }}
+
+    - if: steps.image-cache.outputs.cache-hit != 'true'
+      run: |
+          docker pull jekyll/builder:4.2.2
+          docker save -o ~/image-cache/jekyll.tar jekyll/builder:4.2.2
+
+    - if: steps.image-cache.outputs.cache-hit == 'true'
+      run: docker load -i ~/image-cache/jekyll.tar
+  
+    - name: Build the site in the jekyll/builder container
+      run: |
+        docker run \
+        -v ${{ github.workspace }}:/srv/jekyll -v ${{ github.workspace }}/_site:/srv/jekyll/_site \
+        jekyll/builder:4.2.2 /bin/bash -c "chmod -R 777 /srv/jekyll && jekyll build --future"
